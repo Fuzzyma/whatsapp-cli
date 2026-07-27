@@ -1,0 +1,30 @@
+{
+  "name": "whatsapp-api-cli",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "whatsapp-api": "dist/index.js"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "commander": "15.0.0",
+    "jose": "6.2.4",
+    "ws": "8.21.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.13",
+    "@types/ws": "8.18.1",
+    "tsx": "4.23.1",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
+  }
+}
