@@ -1,10 +1,10 @@
 {
-  "name": "whatsapp-api-cli",
+  "name": "whatsapp-cli",
   "version": "1.0.0",
   "private": true,
   "type": "module",
   "bin": {
-    "whatsapp-api": "dist/index.js"
+    "whatsapp": "dist/index.js"
   },
   "engines": {
     "node": ">=24"

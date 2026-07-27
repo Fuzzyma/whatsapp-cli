@@ -5,7 +5,7 @@ coverage/
 .env.*
 !.env.example
 *.log
-.whatsapp-api-sequence
+.whatsapp-sequence
 *.pem
 *.key
 *.p12

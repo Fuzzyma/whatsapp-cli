@@ -49,7 +49,7 @@ function commonMessageOptions(command: Command): Command {
 }
 
 const program = new Command()
-  .name("whatsapp-api")
+  .name("whatsapp")
   .description("Trusted command-line client for the authenticated WhatsApp API")
   .version("1.0.0")
   .option(
@@ -64,7 +64,7 @@ const program = new Command()
   .option("--compact", "print compact JSON", false)
   .addHelpText(
     "after",
-    '\nCodex integration:\n  Run "whatsapp-api install-skill" to install the bundled global skill.\n'
+    '\nCodex integration:\n  Run "whatsapp install-skill" to install the bundled global skill.\n'
   );
 
 program
@@ -185,7 +185,7 @@ program
   .option(
     "--cursor-file <path>",
     "file used to persist the last processed sequence",
-    ".whatsapp-api-sequence"
+    ".whatsapp-sequence"
   )
   .option("--no-persist", "do not read or write the cursor file")
   .action(async (options, command) => {
@@ -204,7 +204,7 @@ try {
     !isCodexSkillInstalled()
   ) {
     process.stderr.write(
-      `Tip: install the Codex WhatsApp skill with "whatsapp-api install-skill" (${codexSkillPath()}).\n`
+      `Tip: install the Codex WhatsApp skill with "whatsapp install-skill" (${codexSkillPath()}).\n`
     );
   }
 } catch (error) {
