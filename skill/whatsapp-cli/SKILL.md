@@ -1,0 +1,111 @@
+---
+name: whatsapp-cli
+description: Access the user's authenticated WhatsApp account through the whatsapp-api CLI to inspect connection state, list or resolve chats, retrieve and search message history, download requested media, pull or watch new-message events, and send text or media when explicitly requested. Use whenever Codex needs to answer questions from WhatsApp history, find conversations or attachments, monitor WhatsApp notifications, or deliver a user-authorized WhatsApp message through the locally hosted API.
+---
+
+# WhatsApp CLI
+
+Use `whatsapp-api` as the primary interface. In a repository checkout where
+the binary is not linked, use `node dist/index.js` from the CLI project.
+Do not query the server database or call its HTTP endpoints directly unless
+diagnosing a CLI failure.
+
+## Configure safely
+
+- Require Node.js 24, a running `whatsapp-server`, and a paired account.
+- Store configuration in an env file with mode `0600`:
+
+```dotenv
+WHATSAPP_API_URL=http://127.0.0.1:3000
+API_SHARED_SECRET_B64=<32-byte-base64-shared-secret>
+```
+
+- Let the CLI read `.env` in the current directory, or pass
+  `--env-file /absolute/path/to/file` before the subcommand.
+- Never print, echo, log, interpolate, or pass the shared secret as a command
+  argument. Never enable shell tracing around a CLI invocation.
+- Use HTTPS for a non-loopback API URL. The local default is
+  `http://127.0.0.1:3000`.
+
+## Choose the operation
+
+Use these read-only commands without additional confirmation when they answer
+the user's request:
+
+```sh
+whatsapp-api status
+whatsapp-api chats --limit 100
+whatsapp-api messages --limit 20
+whatsapp-api messages --chat CHAT_JID --limit 20
+whatsapp-api search 'project update' --sort newest --limit 20
+whatsapp-api get MESSAGE_UUID
+whatsapp-api events --after SEQUENCE --limit 100
+```
+
+Apply `--sender`, `--direction`, `--type`, `--from`, and `--to` filters where
+they reduce unnecessary disclosure. Add `--include-deleted` only when the
+user asks for deleted records.
+
+### Resolve chats and paginate
+
+- Resolve a person's chat by paging through `chats` and matching
+  `displayName` or `contactName` case-insensitively. Message search does not
+  search contact names.
+- Do not guess when multiple contacts match. Show the minimal disambiguating
+  details and ask the user.
+- Treat `nextCursor` as opaque. Pass it unchanged with `--cursor` until it is
+  null or enough results have been found.
+- Message pages are newest first. To find recent media, page through messages
+  and select records where `hasMedia` is true.
+
+### Download media
+
+Download only when requested or necessary to complete the user's task:
+
+```sh
+whatsapp-api download MESSAGE_UUID --output /absolute/new/path
+```
+
+Choose a new output path; the CLI intentionally refuses to overwrite a file.
+Report the saved path. A `410 MEDIA_UNAVAILABLE` response means WhatsApp no
+longer provides the media.
+
+### Watch notifications
+
+Use `watch` only for an explicit monitoring or notification request:
+
+```sh
+whatsapp-api watch --cursor-file /secure/state/whatsapp.sequence
+```
+
+Keep a durable cursor file for long-running work. The client reconnects with
+replay, but delivery is at least once; deduplicate by event `id` or
+`sequence`. Stop the watcher cleanly with SIGINT or SIGTERM.
+
+### Send messages
+
+Sending is an external side effect. Send only when the user explicitly asks
+for it and the recipient, content, and attachment are sufficiently clear.
+Do not send a test message merely to verify connectivity.
+
+```sh
+whatsapp-api send-text RECIPIENT 'exact text' --idempotency-key STABLE_UUID
+whatsapp-api send-media RECIPIENT /absolute/file --caption 'caption' \
+  --mime-type image/jpeg --idempotency-key STABLE_UUID
+```
+
+- Accept an E.164 number without `+` or an exact WhatsApp JID.
+- Resolve ambiguous recipients before sending.
+- Reuse the same idempotency key when retrying the same intended send. Do not
+  blindly retry when the first outcome is uncertain.
+- Verify a media path is the intended regular file and keep within the
+  server's upload limit.
+- Report the API result without exposing unrelated conversation data.
+
+## Handle failures
+
+- Check `status` first for connection problems.
+- Treat `401` as env-file or shared-secret configuration failure.
+- Treat `503 WHATSAPP_UNAVAILABLE` as a disconnected or logged-out account;
+  do not loop sends.
+- Preserve the JSON error envelope and request ID when reporting failures.

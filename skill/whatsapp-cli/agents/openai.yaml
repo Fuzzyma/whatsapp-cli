@@ -1,0 +1,4 @@
+interface:
+  display_name: "WhatsApp CLI"
+  short_description: "Query and operate WhatsApp through the local API"
+  default_prompt: "Use $whatsapp-cli to find recent WhatsApp messages safely."

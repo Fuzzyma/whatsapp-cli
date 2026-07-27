@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { parseEnv } from "node:util";
+
 export interface ClientConfig {
   apiUrl: URL;
   sharedSecret: Uint8Array;
@@ -5,15 +8,35 @@ export interface ClientConfig {
 
 export function loadClientConfig(options: {
   apiUrl?: string;
-  secret?: string;
+  envFile?: string;
 }): ClientConfig {
+  const envFile =
+    options.envFile ?? process.env.WHATSAPP_ENV_FILE ?? ".env";
+  let fileEnvironment: Record<string, string | undefined> = {};
+  try {
+    fileEnvironment = parseEnv(readFileSync(envFile, "utf8"));
+  } catch (error) {
+    const missing =
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "ENOENT";
+    if (!missing || options.envFile || process.env.WHATSAPP_ENV_FILE) {
+      throw error;
+    }
+  }
+
   const apiUrlValue =
-    options.apiUrl ?? process.env.WHATSAPP_API_URL ?? "http://127.0.0.1:3000";
+    options.apiUrl ??
+    process.env.WHATSAPP_API_URL ??
+    fileEnvironment.WHATSAPP_API_URL ??
+    "http://127.0.0.1:3000";
   const secretValue =
-    options.secret ?? process.env.API_SHARED_SECRET_B64;
+    process.env.API_SHARED_SECRET_B64 ??
+    fileEnvironment.API_SHARED_SECRET_B64;
   if (!secretValue) {
     throw new Error(
-      "API_SHARED_SECRET_B64 is required (or pass --secret with the base64 value)"
+      `API_SHARED_SECRET_B64 is required in ${envFile}`
     );
   }
   const sharedSecret = Buffer.from(secretValue, "base64");

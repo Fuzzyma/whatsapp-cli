@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { jwtVerify } from "jose";
 import { createAccessToken } from "../src/auth.js";
 import { loadClientConfig } from "../src/config.js";
@@ -17,13 +20,25 @@ describe("client authentication", () => {
   });
 
   it("validates URL and decoded secret length", () => {
-    const valid = loadClientConfig({
-      apiUrl: "https://example.test/",
-      secret: Buffer.alloc(32, 1).toString("base64")
-    });
-    expect(valid.apiUrl.toString()).toBe("https://example.test/");
-    expect(() =>
-      loadClientConfig({ apiUrl: "ftp://example.test", secret: "bad" })
-    ).toThrow();
+    const directory = mkdtempSync(join(tmpdir(), "whatsapp-cli-config-"));
+    const envFile = join(directory, ".env");
+    try {
+      writeFileSync(
+        envFile,
+        [
+          "WHATSAPP_API_URL=https://example.test/",
+          `API_SHARED_SECRET_B64=${Buffer.alloc(32, 1).toString("base64")}`
+        ].join("\n")
+      );
+      const valid = loadClientConfig({ envFile });
+      expect(valid.apiUrl.toString()).toBe("https://example.test/");
+
+      writeFileSync(envFile, "API_SHARED_SECRET_B64=bad\n");
+      expect(() =>
+        loadClientConfig({ apiUrl: "ftp://example.test", envFile })
+      ).toThrow();
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 });

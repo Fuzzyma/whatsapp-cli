@@ -16,9 +16,14 @@ git clone https://github.com/Fuzzyma/whatsapp-cli.git
 cd whatsapp-cli
 npm ci
 npm run build
-export WHATSAPP_API_URL=https://whatsapp-api.example.com
-export API_SHARED_SECRET_B64='...'
+cp .env.example .env
+chmod 600 .env
 ```
+
+Set `WHATSAPP_API_URL` and `API_SHARED_SECRET_B64` in `.env`. The secret is
+never accepted as a command-line argument. Use `--env-file /secure/path/file`
+or set `WHATSAPP_ENV_FILE` when the file is not `.env` in the current
+directory. `--api-url` may override only the non-secret URL.
 
 Install the binary locally with `npm link` and use `whatsapp-api`:
 
@@ -27,9 +32,20 @@ npm link
 whatsapp-api status
 ```
 
-`--api-url` and `--secret` can override the environment for a single command.
-Prefer the environment variable for the secret so it does not enter shell
-history.
+## Codex skill
+
+The repository includes a global Codex skill describing safe read, search,
+download, notification, and send workflows:
+
+```sh
+whatsapp-api install-skill
+```
+
+The command installs to `${CODEX_HOME:-~/.codex}/skills/whatsapp-cli` and
+refuses to replace an existing skill. Use `install-skill --force` only when
+you intentionally want to update that installation. Interactive CLI use
+prints a hint until the skill is installed; JSON and WebSocket output remain
+clean when redirected or piped.
 
 ## Commands
 
@@ -44,6 +60,7 @@ whatsapp-api download MESSAGE_UUID --output ./attachment.bin
 whatsapp-api send-text 15551234567 'hello'
 whatsapp-api send-media 15551234567 ./photo.jpg --mime-type image/jpeg
 whatsapp-api events --after 0
+whatsapp-api install-skill
 ```
 
 Use `whatsapp-api <command> --help` for all filters and options. Finite commands

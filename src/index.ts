@@ -2,11 +2,16 @@
 import { Command, Option } from "commander";
 import { ApiClient, ApiError } from "./api.js";
 import { loadClientConfig } from "./config.js";
+import {
+  codexSkillPath,
+  installCodexSkill,
+  isCodexSkillInstalled
+} from "./skill.js";
 import { watchEvents } from "./watch.js";
 
 interface GlobalOptions {
   apiUrl?: string;
-  secret?: string;
+  envFile?: string;
   compact?: boolean;
 }
 
@@ -15,7 +20,7 @@ function clientFor(command: Command): ApiClient {
   return new ApiClient(
     loadClientConfig({
       ...(options.apiUrl ? { apiUrl: options.apiUrl } : {}),
-      ...(options.secret ? { secret: options.secret } : {})
+      ...(options.envFile ? { envFile: options.envFile } : {})
     })
   );
 }
@@ -49,14 +54,26 @@ const program = new Command()
   .version("1.0.0")
   .option(
     "--api-url <url>",
-    "API base URL",
-    process.env.WHATSAPP_API_URL ?? "http://127.0.0.1:3000"
+    "override the API base URL from the env file"
   )
   .option(
-    "--secret <base64>",
-    "API shared secret; prefer API_SHARED_SECRET_B64 instead of command history"
+    "--env-file <path>",
+    "environment file containing API_SHARED_SECRET_B64",
+    process.env.WHATSAPP_ENV_FILE ?? ".env"
   )
-  .option("--compact", "print compact JSON", false);
+  .option("--compact", "print compact JSON", false)
+  .addHelpText(
+    "after",
+    '\nCodex integration:\n  Run "whatsapp-api install-skill" to install the bundled global skill.\n'
+  );
+
+program
+  .command("install-skill")
+  .description("install the bundled global Codex skill")
+  .option("--force", "replace an existing whatsapp-cli skill", false)
+  .action(async (options, command) => {
+    print(await installCodexSkill({ force: options.force }), command);
+  });
 
 program
   .command("status")
@@ -181,6 +198,15 @@ program
 
 try {
   await program.parseAsync();
+  if (
+    process.stderr.isTTY &&
+    !process.argv.includes("install-skill") &&
+    !isCodexSkillInstalled()
+  ) {
+    process.stderr.write(
+      `Tip: install the Codex WhatsApp skill with "whatsapp-api install-skill" (${codexSkillPath()}).\n`
+    );
+  }
 } catch (error) {
   if (error instanceof ApiError) {
     process.stderr.write(
