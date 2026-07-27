@@ -33,6 +33,7 @@ the user's request:
 ```sh
 whatsapp status
 whatsapp chats --limit 100
+whatsapp recipients 'contact name' --limit 20
 whatsapp messages --limit 20
 whatsapp messages --chat CHAT_JID --limit 20
 whatsapp search 'project update' --sort newest --limit 20
@@ -44,13 +45,16 @@ Apply `--sender`, `--direction`, `--type`, `--from`, and `--to` filters where
 they reduce unnecessary disclosure. Add `--include-deleted` only when the
 user asks for deleted records.
 
-### Resolve chats and paginate
+### Resolve recipients and paginate
 
-- Resolve a person's chat by paging through `chats` and matching
-  `displayName` or `contactName` case-insensitively. Message search does not
-  search contact names.
+- Resolve a person or group with `recipients`, which searches saved names,
+  notify names, usernames, verified names, and group names. Prefer an exact
+  case-insensitive name match.
 - Do not guess when multiple contacts match. Show the minimal disambiguating
   details and ask the user.
+- Use the returned `id` as the recipient for `send-text` or `send-media`.
+- Use `chats` only when browsing conversations; contacts without an existing
+  chat do not appear there. Message search does not search contact names.
 - Treat `nextCursor` as opaque. Pass it unchanged with `--cursor` until it is
   null or enough results have been found.
 - Message pages are newest first. To find recent media, page through messages

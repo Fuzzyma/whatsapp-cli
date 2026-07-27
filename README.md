@@ -52,6 +52,7 @@ clean when redirected or piped.
 ```sh
 whatsapp status
 whatsapp chats --limit 50
+whatsapp recipients 'contact name' --limit 20
 whatsapp messages --limit 20
 whatsapp messages --chat 15551234567@s.whatsapp.net
 whatsapp search 'project update' --sort newest

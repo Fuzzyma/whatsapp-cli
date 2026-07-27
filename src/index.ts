@@ -91,6 +91,15 @@ program
     print(await clientFor(command).chats(options), command);
   });
 
+program
+  .command("recipients")
+  .description("search contacts and groups by name")
+  .argument("<query>", "saved, notify, username, verified, or group name")
+  .option("--limit <number>", "result count", (value) => Number(value), 20)
+  .action(async (query, options, command) => {
+    print(await clientFor(command).recipients(query, options.limit), command);
+  });
+
 commonMessageOptions(
   program.command("messages").description("list latest global or per-chat messages")
 ).action(async (options, command) => {

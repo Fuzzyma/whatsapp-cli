@@ -79,6 +79,15 @@ export class ApiClient {
     );
   }
 
+  recipients(query: string, limit?: number): Promise<unknown> {
+    return this.json(
+      withQuery("/v1/recipients", {
+        q: query,
+        limit
+      })
+    );
+  }
+
   messages(options: {
     chat?: string;
     sender?: string;
