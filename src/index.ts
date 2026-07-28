@@ -58,8 +58,7 @@ const program = new Command()
   )
   .option(
     "--env-file <path>",
-    "environment file containing API_SHARED_SECRET_B64",
-    process.env.WHATSAPP_ENV_FILE ?? ".env"
+    "override the environment file containing API_SHARED_SECRET_B64"
   )
   .option("--compact", "print compact JSON", false)
   .addHelpText(

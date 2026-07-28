@@ -1,4 +1,6 @@
 import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { isAbsolute, join } from "node:path";
 import { parseEnv } from "node:util";
 
 export interface ClientConfig {
@@ -6,23 +8,40 @@ export interface ClientConfig {
   sharedSecret: Uint8Array;
 }
 
+export function defaultEnvFile(): string {
+  const configuredHome = process.env.XDG_CONFIG_HOME;
+  const configHome =
+    configuredHome && isAbsolute(configuredHome)
+      ? configuredHome
+      : join(homedir(), ".config");
+  return join(configHome, "whatsapp-cli", ".env");
+}
+
 export function loadClientConfig(options: {
   apiUrl?: string;
   envFile?: string;
 }): ClientConfig {
-  const envFile =
-    options.envFile ?? process.env.WHATSAPP_ENV_FILE ?? ".env";
+  const requestedEnvFile =
+    options.envFile ?? process.env.WHATSAPP_ENV_FILE;
+  const envFiles = requestedEnvFile
+    ? [requestedEnvFile]
+    : [defaultEnvFile(), ".env"];
+  let envFile: string | undefined;
   let fileEnvironment: Record<string, string | undefined> = {};
-  try {
-    fileEnvironment = parseEnv(readFileSync(envFile, "utf8"));
-  } catch (error) {
-    const missing =
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      error.code === "ENOENT";
-    if (!missing || options.envFile || process.env.WHATSAPP_ENV_FILE) {
-      throw error;
+  for (const candidate of envFiles) {
+    try {
+      fileEnvironment = parseEnv(readFileSync(candidate, "utf8"));
+      envFile = candidate;
+      break;
+    } catch (error) {
+      const missing =
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === "ENOENT";
+      if (!missing || requestedEnvFile) {
+        throw error;
+      }
     }
   }
 
@@ -36,7 +55,9 @@ export function loadClientConfig(options: {
     fileEnvironment.API_SHARED_SECRET_B64;
   if (!secretValue) {
     throw new Error(
-      `API_SHARED_SECRET_B64 is required in ${envFile}`
+      envFile
+        ? `API_SHARED_SECRET_B64 is required in ${envFile}`
+        : `API_SHARED_SECRET_B64 is required in the environment or ${envFiles.join(" or ")}`
     );
   }
   const sharedSecret = Buffer.from(secretValue, "base64");

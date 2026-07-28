@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { jwtVerify } from "jose";
@@ -6,6 +6,10 @@ import { createAccessToken } from "../src/auth.js";
 import { loadClientConfig } from "../src/config.js";
 
 describe("client authentication", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("creates a server-compatible 30-second JWT", async () => {
     const secret = new Uint8Array(Buffer.alloc(32, 5));
     const token = await createAccessToken(secret);
@@ -37,6 +41,34 @@ describe("client authentication", () => {
       expect(() =>
         loadClientConfig({ apiUrl: "ftp://example.test", envFile })
       ).toThrow();
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("loads the default config from the user config directory", () => {
+    const directory = mkdtempSync(join(tmpdir(), "whatsapp-cli-home-config-"));
+    const configDirectory = join(directory, "whatsapp-cli");
+    const envFile = join(configDirectory, ".env");
+    try {
+      mkdirSync(configDirectory);
+      writeFileSync(
+        envFile,
+        [
+          "WHATSAPP_API_URL=https://home-config.example.test",
+          `API_SHARED_SECRET_B64=${Buffer.alloc(32, 2).toString("base64")}`
+        ].join("\n")
+      );
+      vi.stubEnv("XDG_CONFIG_HOME", directory);
+      vi.stubEnv("WHATSAPP_ENV_FILE", undefined);
+      vi.stubEnv("WHATSAPP_API_URL", undefined);
+      vi.stubEnv("API_SHARED_SECRET_B64", undefined);
+
+      const config = loadClientConfig({});
+
+      expect(config.apiUrl.toString()).toBe(
+        "https://home-config.example.test/"
+      );
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

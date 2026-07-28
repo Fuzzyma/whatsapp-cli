@@ -16,14 +16,17 @@ git clone https://github.com/Fuzzyma/whatsapp-cli.git
 cd whatsapp-cli
 npm ci
 npm run build
-cp .env.example .env
-chmod 600 .env
+mkdir -p ~/.config/whatsapp-cli
+cp .env.example ~/.config/whatsapp-cli/.env
+chmod 600 ~/.config/whatsapp-cli/.env
 ```
 
-Set `WHATSAPP_API_URL` and `API_SHARED_SECRET_B64` in `.env`. The secret is
-never accepted as a command-line argument. Use `--env-file /secure/path/file`
-or set `WHATSAPP_ENV_FILE` when the file is not `.env` in the current
-directory. `--api-url` may override only the non-secret URL.
+Set `WHATSAPP_API_URL` and `API_SHARED_SECRET_B64` in
+`~/.config/whatsapp-cli/.env`. The CLI honors `XDG_CONFIG_HOME`, then falls
+back to `.env` in the current directory for compatibility. The secret is never
+accepted as a command-line argument. Use `--env-file /secure/path/file` or set
+`WHATSAPP_ENV_FILE` to override config discovery. `--api-url` may override only
+the non-secret URL.
 
 Install the `whatsapp` binary locally with `npm link`:
 

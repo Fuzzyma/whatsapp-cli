@@ -18,8 +18,10 @@ WHATSAPP_API_URL=http://127.0.0.1:3000
 API_SHARED_SECRET_B64=<32-byte-base64-shared-secret>
 ```
 
-- Let the CLI read `.env` in the current directory, or pass
-  `--env-file /absolute/path/to/file` before the subcommand.
+- Let the CLI read `~/.config/whatsapp-cli/.env` (or
+  `$XDG_CONFIG_HOME/whatsapp-cli/.env`). It falls back to `.env` in the current
+  directory. Pass `--env-file /absolute/path/to/file` before the subcommand to
+  override discovery.
 - Never print, echo, log, interpolate, or pass the shared secret as a command
   argument. Never enable shell tracing around a CLI invocation.
 - Use HTTPS for a non-loopback API URL. The local default is
