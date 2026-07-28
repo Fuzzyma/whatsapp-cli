@@ -73,4 +73,25 @@ describe("client authentication", () => {
       rmSync(directory, { recursive: true, force: true });
     }
   });
+
+  it("uses process environment without requiring a config file", () => {
+    const directory = mkdtempSync(join(tmpdir(), "whatsapp-cli-env-only-"));
+    try {
+      vi.stubEnv("XDG_CONFIG_HOME", directory);
+      vi.stubEnv("WHATSAPP_ENV_FILE", undefined);
+      vi.stubEnv("WHATSAPP_API_URL", "https://environment.example.test");
+      vi.stubEnv(
+        "API_SHARED_SECRET_B64",
+        Buffer.alloc(32, 6).toString("base64")
+      );
+
+      const config = loadClientConfig({});
+
+      expect(config.apiUrl.toString()).toBe(
+        "https://environment.example.test/"
+      );
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
 });

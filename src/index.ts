@@ -1,6 +1,7 @@
 #!/usr/bin/env node
+import { randomUUID } from "node:crypto";
 import { Command, Option } from "commander";
-import { ApiClient, ApiError } from "./api.js";
+import { ApiClient, ApiError, SendError } from "./api.js";
 import { loadClientConfig } from "./config.js";
 import {
   codexSkillPath,
@@ -28,6 +29,31 @@ function clientFor(command: Command): ApiClient {
 function print(value: unknown, command: Command): void {
   const options = command.optsWithGlobals<GlobalOptions>();
   process.stdout.write(`${JSON.stringify(value, null, options.compact ? 0 : 2)}\n`);
+}
+
+function sendFailureAdvice(error: SendError): string {
+  const body = error.body;
+  if (
+    typeof body === "object" &&
+    body !== null &&
+    "error" in body &&
+    typeof body.error === "object" &&
+    body.error !== null &&
+    "details" in body.error &&
+    typeof body.error.details === "object" &&
+    body.error.details !== null &&
+    "idempotencyKeyState" in body.error.details &&
+    body.error.details.idempotencyKeyState === "released"
+  ) {
+    return "The server rejected the request before sending; reuse this same key after correcting the failure.";
+  }
+  return "Inspect this key with `whatsapp send-status <key>` before retrying.";
+}
+
+function announceSend(idempotencyKey: string): void {
+  process.stderr.write(
+    `${JSON.stringify({ idempotencyKey, state: "sending" })}\n`
+  );
 }
 
 function commonMessageOptions(command: Command): Command {
@@ -79,6 +105,14 @@ program
   .description("show WhatsApp connection and sync state")
   .action(async (_options, command) => {
     print(await clientFor(command).status(), command);
+  });
+
+program
+  .command("send-status")
+  .description("inspect a retained send outcome by idempotency key")
+  .argument("<key>", "Idempotency-Key used for the send")
+  .action(async (key, _options, command) => {
+    print(await clientFor(command).idempotency(key), command);
   });
 
 program
@@ -144,11 +178,13 @@ program
   .argument("<text>", "message text")
   .option("--idempotency-key <key>", "stable key for manually retried sends")
   .action(async (recipient, text, options, command) => {
+    const idempotencyKey = options.idempotencyKey ?? randomUUID();
+    announceSend(idempotencyKey);
     print(
       await clientFor(command).sendText(
         recipient,
         text,
-        options.idempotencyKey
+        idempotencyKey
       ),
       command
     );
@@ -163,15 +199,15 @@ program
   .option("--mime-type <type>", "override MIME type")
   .option("--idempotency-key <key>", "stable key for manually retried sends")
   .action(async (recipient, file, options, command) => {
+    const idempotencyKey = options.idempotencyKey ?? randomUUID();
+    announceSend(idempotencyKey);
     print(
       await clientFor(command).sendMedia({
         recipient,
         file,
         ...(options.caption ? { caption: options.caption } : {}),
         ...(options.mimeType ? { mimetype: options.mimeType } : {}),
-        ...(options.idempotencyKey
-          ? { idempotencyKey: options.idempotencyKey }
-          : {})
+        idempotencyKey
       }),
       command
     );
@@ -216,7 +252,20 @@ try {
     );
   }
 } catch (error) {
-  if (error instanceof ApiError) {
+  if (error instanceof SendError) {
+    process.stderr.write(
+      `${JSON.stringify(
+        {
+          idempotencyKey: error.idempotencyKey,
+          status: error.status,
+          response: error.body,
+          advice: sendFailureAdvice(error)
+        },
+        null,
+        2
+      )}\n`
+    );
+  } else if (error instanceof ApiError) {
     process.stderr.write(
       `${JSON.stringify({ status: error.status, response: error.body }, null, 2)}\n`
     );

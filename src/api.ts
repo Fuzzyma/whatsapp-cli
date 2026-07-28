@@ -25,6 +25,31 @@ export class ApiError extends Error {
   }
 }
 
+export class SendError extends Error {
+  readonly status: number | null;
+  readonly body: unknown;
+
+  constructor(
+    public readonly idempotencyKey: string,
+    cause: unknown
+  ) {
+    super(
+      cause instanceof Error
+        ? cause.message
+        : "Send request failed with an unknown outcome",
+      { cause }
+    );
+    this.name = "SendError";
+    this.status = cause instanceof ApiError ? cause.status : null;
+    this.body = cause instanceof ApiError ? cause.body : null;
+  }
+}
+
+export interface SendResult {
+  idempotencyKey: string;
+  response: unknown;
+}
+
 function withQuery(
   path: string,
   values: Record<string, string | number | boolean | undefined>
@@ -159,6 +184,10 @@ export class ApiClient {
     );
   }
 
+  idempotency(key: string): Promise<unknown> {
+    return this.json(`/v1/idempotency/${encodeURIComponent(key)}`);
+  }
+
   async downloadMedia(id: string, output: string): Promise<void> {
     const response = await this.request(
       `/v1/messages/${encodeURIComponent(id)}/media`
@@ -170,19 +199,24 @@ export class ApiClient {
     );
   }
 
-  sendText(
+  async sendText(
     recipient: string,
     text: string,
     idempotencyKey = randomUUID()
-  ): Promise<unknown> {
-    return this.json("/v1/messages/text", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "idempotency-key": idempotencyKey
-      },
-      body: JSON.stringify({ recipient, text })
-    });
+  ): Promise<SendResult> {
+    try {
+      const response = await this.json("/v1/messages/text", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": idempotencyKey
+        },
+        body: JSON.stringify({ recipient, text })
+      });
+      return { idempotencyKey, response };
+    } catch (error) {
+      throw new SendError(idempotencyKey, error);
+    }
   }
 
   async sendMedia(options: {
@@ -191,7 +225,8 @@ export class ApiClient {
     caption?: string;
     mimetype?: string;
     idempotencyKey?: string;
-  }): Promise<unknown> {
+  }): Promise<SendResult> {
+    const idempotencyKey = options.idempotencyKey ?? randomUUID();
     const fileInfo = await stat(options.file);
     if (!fileInfo.isFile()) throw new Error("Media path is not a regular file");
     const bytes = await readFile(options.file);
@@ -205,12 +240,17 @@ export class ApiClient {
       }),
       basename(options.file)
     );
-    return this.json("/v1/messages/media", {
-      method: "POST",
-      headers: {
-        "idempotency-key": options.idempotencyKey ?? randomUUID()
-      },
-      body: form
-    });
+    try {
+      const response = await this.json("/v1/messages/media", {
+        method: "POST",
+        headers: {
+          "idempotency-key": idempotencyKey
+        },
+        body: form
+      });
+      return { idempotencyKey, response };
+    } catch (error) {
+      throw new SendError(idempotencyKey, error);
+    }
   }
 }

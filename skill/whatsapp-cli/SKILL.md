@@ -41,6 +41,7 @@ whatsapp messages --chat CHAT_JID --limit 20
 whatsapp search 'project update' --sort newest --limit 20
 whatsapp get MESSAGE_UUID
 whatsapp events --after SEQUENCE --limit 100
+whatsapp send-status IDEMPOTENCY_KEY
 ```
 
 Apply `--sender`, `--direction`, `--type`, `--from`, and `--to` filters where
@@ -84,7 +85,9 @@ whatsapp watch --cursor-file /secure/state/whatsapp.sequence
 
 Keep a durable cursor file for long-running work. The client reconnects with
 replay, but delivery is at least once; deduplicate by event `id` or
-`sequence`. Stop the watcher cleanly with SIGINT or SIGTERM.
+`sequence`. A replay-truncation warning means the cursor is older than retained
+server history and some events cannot be recovered. Stop the watcher cleanly
+with SIGINT or SIGTERM. Use a separate cursor file for each watcher process.
 
 ### Send messages
 
@@ -102,6 +105,11 @@ whatsapp send-media RECIPIENT /absolute/file --caption 'caption' \
 - Resolve ambiguous recipients before sending.
 - Reuse the same idempotency key when retrying the same intended send. Do not
   blindly retry when the first outcome is uncertain.
+- The CLI announces the effective `idempotencyKey` on stderr before dispatch
+  and includes it in successful output. Retain that key. A failure marked
+  `idempotencyKeyState: released` was rejected before sending and can reuse the
+  key after correction. Otherwise run `whatsapp send-status IDEMPOTENCY_KEY`;
+  never substitute a new key for an unknown outcome.
 - Verify a media path is the intended regular file and keep within the
   server's upload limit.
 - Report the API result without exposing unrelated conversation data.
@@ -110,6 +118,8 @@ whatsapp send-media RECIPIENT /absolute/file --caption 'caption' \
 
 - Check `status` first for connection problems.
 - Treat `401` as env-file or shared-secret configuration failure.
+- `watch` treats HTTP 400/401/403 upgrade failures as terminal and does not
+  reconnect.
 - Treat `503 WHATSAPP_UNAVAILABLE` as a disconnected or logged-out account;
   do not loop sends.
 - Preserve the JSON error envelope and request ID when reporting failures.

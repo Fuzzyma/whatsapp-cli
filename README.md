@@ -63,12 +63,20 @@ whatsapp get MESSAGE_UUID
 whatsapp download MESSAGE_UUID --output ./attachment.bin
 whatsapp send-text 15551234567 'hello'
 whatsapp send-media 15551234567 ./photo.jpg --mime-type image/jpeg
+whatsapp send-status IDEMPOTENCY_KEY
 whatsapp events --after 0
 whatsapp install-skill
 ```
 
 Use `whatsapp <command> --help` for all filters and options. Finite commands
 print JSON; add `--compact` for single-line output.
+
+Before dispatch, the CLI writes the effective idempotency key to stderr so it
+survives a killed or interrupted command. Send results also include
+`idempotencyKey` and the API `response`. A failure marked `released` was
+rejected before sending and may be retried with that key after correction.
+Otherwise inspect it with `send-status` before retrying; never switch to a new
+key when the prior outcome is unknown.
 
 ## Long-running notifications
 
@@ -85,7 +93,12 @@ ephemeral consumer.
 
 Event delivery is at least once. Downstream consumers should also deduplicate
 by event `id` or `sequence`. Events older than the server's retention window
-cannot be recovered.
+cannot be recovered. The watcher prints a warning to stderr when the server
+reports that replay was truncated. Event output and cursor updates are
+serialized, and HTTP 400/401/403 upgrade failures are treated as terminal
+configuration errors rather than retried. A malformed cursor is rejected
+instead of silently replaying from zero; use a separate cursor file for each
+watcher process.
 
 ## Development
 
